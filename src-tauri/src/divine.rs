@@ -55,6 +55,25 @@ pub struct SaveSummary {
     pub party_size:   u32,
 }
 
+// ── Path → Divine argument ────────────────────────────────────────────────────
+//
+// Divine's CLI uses .NET's System.Uri to validate paths. On Windows, a path
+// like "C:\foo\bar" is recognised as an absolute file URI. On Linux, an
+// absolute path "/home/deck/foo" is treated as a *relative* URI by .NET,
+// causing "This operation is not supported for a relative URI". Prefixing
+// with "file://" produces a proper absolute file URI on all platforms.
+
+pub fn to_divine_arg(path: &std::path::Path) -> Option<String> {
+    #[cfg(unix)]
+    {
+        path.to_str().map(|s| format!("file://{s}"))
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str().map(|s| s.to_string())
+    }
+}
+
 // ── Path resolution ───────────────────────────────────────────────────────────
 
 pub fn divine_path(app: &tauri::AppHandle) -> PathBuf {
@@ -186,12 +205,15 @@ pub fn extract_save_info(app: &tauri::AppHandle, save_folder: &Path) -> Option<S
     let divine = divine_path(app);
 
     let result = (|| -> Option<SaveSummary> {
+        let lsv_arg = to_divine_arg(&lsv)?;
+        let tmp_arg  = to_divine_arg(&temp_dir)?;
+
         let mut cmd = Command::new(&divine);
         cmd.args([
             "-g", "bg3",
             "-a", "extract-package",
-            "-s", lsv.to_str()?,
-            "-d", temp_dir.to_str()?,
+            "-s", &lsv_arg,
+            "-d", &tmp_arg,
         ]);
         #[cfg(windows)]
         cmd.creation_flags(CREATE_NO_WINDOW);

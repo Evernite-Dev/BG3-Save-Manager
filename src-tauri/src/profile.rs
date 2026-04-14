@@ -7,7 +7,7 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-use crate::divine::divine_path;
+use crate::divine::{divine_path, to_divine_arg};
 use crate::paths;
 
 // ── Internal path helpers ─────────────────────────────────────────────────────
@@ -71,12 +71,14 @@ pub async fn prepare_profile(app: AppHandle) -> Result<String, String> {
     let divine = divine_path(&app);
 
     tokio::task::spawn_blocking(move || {
+        let src_arg = to_divine_arg(&src).unwrap_or_default();
+        let dst_arg = to_divine_arg(&dst).unwrap_or_default();
         let mut cmd = Command::new(&divine);
         cmd.args([
             "-g", "bg3",
             "-a", "convert-resource",
-            "-s", src.to_str().unwrap_or_default(),
-            "-d", dst.to_str().unwrap_or_default(),
+            "-s", &src_arg,
+            "-d", &dst_arg,
             "--input-format", "lsf",
             "--output-format", "lsx",
         ]);
@@ -156,12 +158,14 @@ pub async fn save_profile(app: AppHandle) -> Result<String, String> {
     let divine = divine_path(&app);
 
     tokio::task::spawn_blocking(move || {
+        let src_arg = to_divine_arg(&src).unwrap_or_default();
+        let dst_arg = to_divine_arg(&dst).unwrap_or_default();
         let mut cmd = Command::new(&divine);
         cmd.args([
             "-g", "bg3",
             "-a", "convert-resource",
-            "-s", src.to_str().unwrap_or_default(),
-            "-d", dst.to_str().unwrap_or_default(),
+            "-s", &src_arg,
+            "-d", &dst_arg,
             "--input-format", "lsx",
             "--output-format", "lsf",
         ]);
