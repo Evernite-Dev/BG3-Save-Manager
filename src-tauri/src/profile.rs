@@ -1,5 +1,10 @@
 use std::path::PathBuf;
+use std::process::Command;
 use tauri::AppHandle;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 use crate::divine::divine_path;
 use crate::paths;
@@ -65,17 +70,18 @@ pub async fn prepare_profile(app: AppHandle) -> Result<String, String> {
     let divine = divine_path(&app);
 
     tokio::task::spawn_blocking(move || {
-        let out = std::process::Command::new(&divine)
-            .args([
-                "-g", "bg3",
-                "-a", "convert-resource",
-                "-s", src.to_str().unwrap_or_default(),
-                "-d", dst.to_str().unwrap_or_default(),
-                "--input-format", "lsf",
-                "--output-format", "lsx",
-            ])
-            .output()
-            .map_err(|e| format!("Failed to launch Divine: {e}"))?;
+        let mut cmd = Command::new(&divine);
+        cmd.args([
+            "-g", "bg3",
+            "-a", "convert-resource",
+            "-s", src.to_str().unwrap_or_default(),
+            "-d", dst.to_str().unwrap_or_default(),
+            "--input-format", "lsf",
+            "--output-format", "lsx",
+        ]);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let out = cmd.output().map_err(|e| format!("Failed to launch Divine: {e}"))?;
 
         if !out.status.success() {
             let stderr = String::from_utf8_lossy(&out.stderr);
@@ -149,17 +155,18 @@ pub async fn save_profile(app: AppHandle) -> Result<String, String> {
     let divine = divine_path(&app);
 
     tokio::task::spawn_blocking(move || {
-        let out = std::process::Command::new(&divine)
-            .args([
-                "-g", "bg3",
-                "-a", "convert-resource",
-                "-s", src.to_str().unwrap_or_default(),
-                "-d", dst.to_str().unwrap_or_default(),
-                "--input-format", "lsx",
-                "--output-format", "lsf",
-            ])
-            .output()
-            .map_err(|e| format!("Failed to launch Divine: {e}"))?;
+        let mut cmd = Command::new(&divine);
+        cmd.args([
+            "-g", "bg3",
+            "-a", "convert-resource",
+            "-s", src.to_str().unwrap_or_default(),
+            "-d", dst.to_str().unwrap_or_default(),
+            "--input-format", "lsx",
+            "--output-format", "lsf",
+        ]);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let out = cmd.output().map_err(|e| format!("Failed to launch Divine: {e}"))?;
 
         if !out.status.success() {
             let stderr = String::from_utf8_lossy(&out.stderr);

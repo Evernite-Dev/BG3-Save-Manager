@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl, openPath } from '@tauri-apps/plugin-opener';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import './App.css';
 
@@ -205,11 +205,11 @@ export default function App() {
   };
 
   const handleOpenSaveDir = async () => {
-    if (saveDirPath) await openUrl(saveDirPath).catch(() => {});
+    if (saveDirPath) await openPath(saveDirPath).catch(() => {});
   };
 
   const handleOpenBackupDir = async () => {
-    if (backupDirPath) await openUrl(backupDirPath).catch(() => {});
+    if (backupDirPath) await openPath(backupDirPath).catch(() => {});
   };
 
   // ── Profile editor handlers ───────────────────────────────────────────────

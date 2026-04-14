@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::process::Command;
 use serde::Deserialize;
 use tauri::Manager;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ── JSON structures from SaveInfo.json (produced by Divine) ──────────────────
 
@@ -71,9 +76,9 @@ pub fn divine_path(app: &tauri::AppHandle) -> PathBuf {
         let resource_dir = app.path().resource_dir()
             .unwrap_or_else(|_| PathBuf::from("."));
         #[cfg(windows)]
-        return resource_dir.join("Divine.exe");
+        return resource_dir.join("binaries").join("Divine.exe");
         #[cfg(not(windows))]
-        return resource_dir.join("Divine");
+        return resource_dir.join("binaries").join("Divine");
     }
 }
 
@@ -169,15 +174,16 @@ pub fn extract_save_info(app: &tauri::AppHandle, save_folder: &Path) -> Option<S
     let divine = divine_path(app);
 
     let result = (|| -> Option<SaveSummary> {
-        let status = std::process::Command::new(&divine)
-            .args([
-                "-g", "bg3",
-                "-a", "extract-package",
-                "-s", lsv.to_str()?,
-                "-d", temp_dir.to_str()?,
-            ])
-            .status()
-            .ok()?;
+        let mut cmd = Command::new(&divine);
+        cmd.args([
+            "-g", "bg3",
+            "-a", "extract-package",
+            "-s", lsv.to_str()?,
+            "-d", temp_dir.to_str()?,
+        ]);
+        #[cfg(windows)]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let status = cmd.status().ok()?;
 
         if !status.success() {
             return None;

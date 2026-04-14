@@ -5,23 +5,30 @@ use std::path::PathBuf;
 /// macOS   : ~/Library/Application Support/Larian Studios/Baldur's Gate 3/…
 /// Linux   : ~/.local/share/Larian Studios/Baldur's Gate 3/… (native Steam)
 ///           then falls back to the Steam Proton compatdata path.
-pub fn save_dir() -> Option<PathBuf> {
-    let bg3_tail = "Larian Studios/Baldur's Gate 3/PlayerProfiles/Public/Savegames/Story";
+fn bg3_save_tail(base: PathBuf) -> PathBuf {
+    base.join("Larian Studios")
+        .join("Baldur's Gate 3")
+        .join("PlayerProfiles")
+        .join("Public")
+        .join("Savegames")
+        .join("Story")
+}
 
+pub fn save_dir() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     {
-        dirs::data_local_dir().map(|p| p.join(bg3_tail))
+        dirs::data_local_dir().map(bg3_save_tail)
     }
 
     #[cfg(target_os = "macos")]
     {
-        dirs::data_dir().map(|p| p.join(bg3_tail))
+        dirs::data_dir().map(bg3_save_tail)
     }
 
     #[cfg(target_os = "linux")]
     {
         // 1. Native Steam Linux path
-        let native = dirs::data_local_dir().map(|p| p.join(bg3_tail));
+        let native = dirs::data_local_dir().map(bg3_save_tail);
         if let Some(ref p) = native {
             if p.exists() {
                 return native;
@@ -30,9 +37,11 @@ pub fn save_dir() -> Option<PathBuf> {
 
         // 2. Steam Proton compatdata path (app ID 1086940)
         let proton = dirs::home_dir().map(|h| {
-            h.join(".steam/steam/steamapps/compatdata/1086940/pfx/drive_c/users/steamuser")
-             .join("AppData/Local")
-             .join(bg3_tail)
+            bg3_save_tail(
+                h.join(".steam/steam/steamapps/compatdata/1086940/pfx/drive_c/users/steamuser")
+                 .join("AppData")
+                 .join("Local"),
+            )
         });
         if let Some(ref p) = proton {
             if p.exists() {
@@ -57,23 +66,30 @@ pub fn backup_dir(app: &tauri::AppHandle) -> PathBuf {
 
 /// Returns the BG3 PlayerProfiles/Public directory (one level above the save dir).
 /// This is where profile8.lsf lives.
-pub fn profile_dir() -> Option<PathBuf> {
-    let bg3_base = "Larian Studios/Baldur's Gate 3/PlayerProfiles/Public";
+fn bg3_profile_tail(base: PathBuf) -> PathBuf {
+    base.join("Larian Studios")
+        .join("Baldur's Gate 3")
+        .join("PlayerProfiles")
+        .join("Public")
+}
 
+pub fn profile_dir() -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
-    { dirs::data_local_dir().map(|p| p.join(bg3_base)) }
+    { dirs::data_local_dir().map(bg3_profile_tail) }
 
     #[cfg(target_os = "macos")]
-    { dirs::data_dir().map(|p| p.join(bg3_base)) }
+    { dirs::data_dir().map(bg3_profile_tail) }
 
     #[cfg(target_os = "linux")]
     {
-        let native = dirs::data_local_dir().map(|p| p.join(bg3_base));
+        let native = dirs::data_local_dir().map(bg3_profile_tail);
         if let Some(ref p) = native { if p.exists() { return native; } }
         let proton = dirs::home_dir().map(|h| {
-            h.join(".steam/steam/steamapps/compatdata/1086940/pfx/drive_c/users/steamuser")
-             .join("AppData/Local")
-             .join(bg3_base)
+            bg3_profile_tail(
+                h.join(".steam/steam/steamapps/compatdata/1086940/pfx/drive_c/users/steamuser")
+                 .join("AppData")
+                 .join("Local"),
+            )
         });
         if let Some(ref p) = proton { if p.exists() { return proton; } }
         native
