@@ -199,7 +199,9 @@ fn parse_level(v: &serde_json::Value) -> u32 {
 //   [20..22] flags (u16)  [22..24] priority (u16)  [24..40] MD5  [40..42] num_parts
 // At file-list offset:
 //   [0..4]   num_files (u32 LE)
-//   [4..]    LZ4-block-compressed file table (file_list_size bytes from header)
+//   [4..8]   compressed size of file table (u32 LE)
+//   [8..]    LZ4-block-compressed file table
+// file_list_size in header = 8 + compressed_size (covers all three sections)
 // Each file entry (272 bytes, packed):
 //   [0..256]   name (null-terminated UTF-8)
 //   [256..260] offset_lo (u32 LE)
@@ -226,20 +228,21 @@ fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
     if version != 18 { eprintln!("[lspk] bad version"); return None; }
 
     let file_list_offset = read_u64_le(&mut f)?;
-    let file_list_size   = read_u32_le(&mut f)? as usize;
-    eprintln!("[lspk] file_list_offset={file_list_offset} file_list_size={file_list_size}");
+    let _file_list_size  = read_u32_le(&mut f)?;
+    eprintln!("[lspk] file_list_offset={file_list_offset}");
 
-    // Read file table: [num_files (u32)][LZ4 data (file_list_size bytes)]
+    // Read file table: [num_files (u32)][compressed_size (u32)][LZ4 data]
     f.seek(SeekFrom::Start(file_list_offset)).ok()?;
-    let num_files = read_u32_le(&mut f)? as usize;
-    eprintln!("[lspk] num_files={num_files}");
+    let num_files       = read_u32_le(&mut f)? as usize;
+    let compressed_size = read_u32_le(&mut f)? as usize;
+    eprintln!("[lspk] num_files={num_files} compressed_size={compressed_size}");
 
-    let mut compressed = vec![0u8; file_list_size];
+    let mut compressed = vec![0u8; compressed_size];
     f.read_exact(&mut compressed)
         .map_err(|e| eprintln!("[lspk] read compressed: {e}")).ok()?;
 
     const ENTRY: usize = 272;
-    eprintln!("[lspk] decompressing {} -> expected {}", file_list_size, num_files * ENTRY);
+    eprintln!("[lspk] decompressing {} -> expected {}", compressed_size, num_files * ENTRY);
     let table = lz4_flex::decompress(&compressed, num_files * ENTRY)
         .map_err(|e| eprintln!("[lspk] lz4 decompress: {e}")).ok()?;
     eprintln!("[lspk] decompressed ok, scanning {} entries", num_files);
