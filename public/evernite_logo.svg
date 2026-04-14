@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+
+    <radialGradient id="orangeGrad" cx="38%" cy="32%" r="65%" fx="35%" fy="28%">
+      <stop offset="0%"   stop-color="#f0a050"/>
+      <stop offset="30%"  stop-color="#d4690e"/>
+      <stop offset="65%"  stop-color="#b34d00"/>
+      <stop offset="100%" stop-color="#6a2800"/>
+    </radialGradient>
+
+    <radialGradient id="silverGrad" cx="60%" cy="35%" r="70%" fx="58%" fy="30%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="35%"  stop-color="#d8d8d8"/>
+      <stop offset="75%"  stop-color="#a8a8a8"/>
+      <stop offset="100%" stop-color="#707070"/>
+    </radialGradient>
+
+    <radialGradient id="rayGrad" cx="50%" cy="0%" r="100%">
+      <stop offset="0%"   stop-color="#d97820"/>
+      <stop offset="100%" stop-color="#9a4500"/>
+    </radialGradient>
+
+    <!-- Clip to sphere boundary -->
+    <clipPath id="sphereClip">
+      <circle cx="300" cy="320" r="200"/>
+    </clipPath>
+
+    <!--
+      Crescent mask: 20% of sphere area.
+      Sphere radius = 200. Area = π*200² = 125664.
+      20% area crescent via offset circle.
+      Offset circle same radius, shifted so intersection = ~20% of sphere area.
+      Offset distance ~260px gives roughly 20% crescent (bottom-left).
+    -->
+    <mask id="crescentMask">
+      <circle cx="300" cy="320" r="200" fill="white"/>
+      <!-- Cutout circle offset toward upper-right, leaving bottom-left crescent -->
+      <circle cx="390" cy="235" r="200" fill="black"/>
+    </mask>
+
+  </defs>
+
+  <!--
+    SPHERE center: (300, 320), radius: 200
+    45 degrees from top = upper-right direction.
+    Unit vector at 45deg: (sin45, -cos45) = (0.7071, -0.7071)
+
+    Ray setup:
+    - Equilateral triangles, side length = 55px
+    - Height of equilateral triangle = side * sqrt(3)/2 = 55 * 0.866 = 47.6px
+    - Gap between sphere edge and triangle base = 18px
+    - Triangle base center sits at: sphere_edge + gap + 0 (base at near end)
+    - Base center distance from sphere center = 200 + 18 = 218px
+    - Tip distance from sphere center = 218 + 47.6 = 265.6px
+
+    Center ray: 45 degrees (pointing upper-right)
+    Left ray:   45 - 20 = 25 degrees, rotated 7deg outward (CCW)
+    Right ray:  45 + 20 = 65 degrees, rotated 7deg outward (CW)
+
+    For each ray we define it in local space pointing "up" (tip at top),
+    then rotate it to the correct angle.
+
+    Local equilateral triangle (tip up, base at y=0, tip at y=-47.6):
+    Base left:  (-27.5, 0)
+    Base right: ( 27.5, 0)
+    Tip:        (  0,  -47.6)
+
+    Then translate so base-center is at origin, and rotate to target angle.
+  -->
+
+  <!-- 
+    CENTER RAY: direction = 45deg from top of circle
+    = rotation of 45deg clockwise from "up"
+    Base center at angle 45deg, dist 218 from (300,320):
+      x = 300 + 218*sin(45) = 300 + 154.1 = 454.1 → but that puts it far right
+    
+    Wait — "45 degrees from the top" on a circle:
+    Top of circle is at (300, 120). 
+    45deg clockwise from top = upper-right at bearing 45deg.
+    Point on sphere at 45deg: (300 + 200*sin45, 320 - 200*cos45) = (441.4, 178.6)
+    
+    Base center (gap=18): (300 + 218*sin45, 320 - 218*cos45) = (454.2, 166.1)
+    Tip (dist 265.6):     (300 + 265.6*sin45, 320 - 265.6*cos45) = (487.8, 132.4)
+
+    The triangle must be rotated 45deg from "pointing up" to point along 45deg radial.
+    
+    LEFT RAY: bearing = 45 - 20 = 25deg, then rotate triangle 7deg CCW extra
+    Point on sphere at 25deg: (300 + 200*sin25, 320 - 200*cos25) = (384.5, 138.7)
+    Base center (gap=18): (300 + 218*sin25, 320 - 218*cos25) = (392.1, 122.5)
+    Tip (dist 265.6):     (300 + 265.6*sin25, 320 - 265.6*cos25) = (412.2,  79.4)
+    Triangle rotation = 25 - 7 = 18deg
+
+    RIGHT RAY: bearing = 45 + 20 = 65deg, then rotate triangle 7deg CW extra  
+    Point on sphere at 65deg: (300 + 200*sin65, 320 - 200*cos65) = (481.3, 235.4)
+    Base center (gap=18): (300 + 218*sin65, 320 - 218*cos65) = (497.6, 227.9)
+    Tip (dist 265.6):     (300 + 265.6*sin65, 320 - 265.6*cos65) = (540.7, 207.8)
+    Triangle rotation = 65 + 7 = 72deg
+
+    SVG rotate(deg) is clockwise.
+    "Pointing up" triangle has tip at (0,-47.6), base at (-27.5,0),(27.5,0).
+    To point along bearing B (clockwise from up), rotate by B degrees.
+  -->
+
+  <!-- LEFT RAY: bearing 25deg, rotated 18deg (25-7), gap=36px -->
+  <g transform="translate(399.7, 106.1) rotate(18)">
+    <path d="M -2.75,-47.63 Q 0.00,-52.39 2.75,-47.63 L 27.50,-4.76 Q 30.25,0.00 24.75,0.00 L -24.75,0.00 Q -30.25,0.00 -27.50,-4.76 Z"
+          fill="url(#rayGrad)"
+          stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+
+  <!-- CENTER RAY: bearing 45deg, rotated 45deg, gap=36px -->
+  <g transform="translate(466.9, 153.1) rotate(45)">
+    <path d="M -2.75,-47.63 Q 0.00,-52.39 2.75,-47.63 L 27.50,-4.76 Q 30.25,0.00 24.75,0.00 L -24.75,0.00 Q -30.25,0.00 -27.50,-4.76 Z"
+          fill="url(#rayGrad)"
+          stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+
+  <!-- RIGHT RAY: bearing 65deg, rotated 72deg (65+7), gap=36px -->
+  <g transform="translate(513.9, 220.3) rotate(72)">
+    <path d="M -2.75,-47.63 Q 0.00,-52.39 2.75,-47.63 L 27.50,-4.76 Q 30.25,0.00 24.75,0.00 L -24.75,0.00 Q -30.25,0.00 -27.50,-4.76 Z"
+          fill="url(#rayGrad)"
+          stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+
+  <!-- ORANGE SPHERE -->
+  <circle cx="300" cy="320" r="200"
+          fill="url(#orangeGrad)"
+          stroke="#1a1a1a" stroke-width="4"/>
+
+  <!-- SILVER CRESCENT overlaid on bottom-left of sphere -->
+  <circle cx="300" cy="320" r="200"
+          fill="url(#silverGrad)"
+          stroke="none"
+          mask="url(#crescentMask)"/>
+
+  <!-- Crescent inner edge stroke -->
+  <circle cx="390" cy="235" r="200"
+          fill="none"
+          stroke="#1a1a1a" stroke-width="4"
+          clip-path="url(#sphereClip)"/>
+
+  <!-- Outer sphere stroke on top -->
+  <circle cx="300" cy="320" r="200"
+          fill="none"
+          stroke="#1a1a1a" stroke-width="4"/>
+
+</svg>
