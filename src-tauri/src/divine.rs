@@ -199,8 +199,7 @@ fn parse_level(v: &serde_json::Value) -> u32 {
 //   [20..22] flags (u16)  [22..24] priority (u16)  [24..40] MD5  [40..42] num_parts
 // At file-list offset:
 //   [0..4]   num_files (u32 LE)
-//   [4..8]   compressed size of file table (u32 LE)
-//   [8..]    LZ4-block-compressed file table
+//   [4..]    LZ4-block-compressed file table (file_list_size bytes from header)
 // Each file entry (272 bytes, packed):
 //   [0..256]   name (null-terminated UTF-8)
 //   [256..260] offset_lo (u32 LE)
@@ -224,15 +223,14 @@ fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
     if version != 18 { return None; }
 
     let file_list_offset = read_u64_le(&mut f)?;
-    let _file_list_size  = read_u32_le(&mut f)?;
-    // skip flags(2) + priority(2) + md5(16) + num_parts(2)
+    let file_list_size   = read_u32_le(&mut f)? as usize;
+    // skip flags(2) + priority(2) + md5(16) + num_parts(2) — we seek directly
 
-    // Read file table
+    // Read file table: [num_files (u32)][LZ4 data (file_list_size bytes)]
     f.seek(SeekFrom::Start(file_list_offset)).ok()?;
-    let num_files       = read_u32_le(&mut f)? as usize;
-    let compressed_size = read_u32_le(&mut f)? as usize;
+    let num_files = read_u32_le(&mut f)? as usize;
 
-    let mut compressed = vec![0u8; compressed_size];
+    let mut compressed = vec![0u8; file_list_size];
     f.read_exact(&mut compressed).ok()?;
 
     const ENTRY: usize = 272;
