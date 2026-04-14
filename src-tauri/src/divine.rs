@@ -268,6 +268,10 @@ fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
         f.read_exact(&mut data)
             .map_err(|e| eprintln!("[lspk] read data: {e}")).ok()?;
 
+        // Hex dump of first 16 bytes to identify compression format
+        let preview_len = data.len().min(16);
+        eprintln!("[lspk] data[0..{preview_len}]: {:02x?}", &data[..preview_len]);
+
         let json_bytes: Vec<u8> = match flags & 0x0F {
             0       => { eprintln!("[lspk] no compression"); data }
             2 | 3   => {
