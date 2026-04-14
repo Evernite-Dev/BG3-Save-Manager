@@ -65,14 +65,8 @@ pub struct SaveSummary {
 // with "file://" produces a proper absolute file URI on all platforms.
 
 pub fn to_divine_arg(path: &std::path::Path) -> Option<String> {
-    #[cfg(unix)]
-    {
-        path.to_str().map(|s| format!("file://{s}"))
-    }
-    #[cfg(not(unix))]
-    {
-        path.to_str().map(|s| s.to_string())
-    }
+    // lslib v1.20.0+ fixed Linux path validation — bare absolute paths now work.
+    path.to_str().map(|s| s.to_string())
 }
 
 // ── Path resolution ───────────────────────────────────────────────────────────
