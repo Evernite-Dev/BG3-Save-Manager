@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+#[cfg(windows)]
 use std::process::Command;
 use serde::Deserialize;
 
@@ -183,50 +184,142 @@ fn parse_level(v: &serde_json::Value) -> u32 {
     }
 }
 
+// ── Native LSPK reader (Linux / macOS) ───────────────────────────────────────
+//
+// Divine's CLI path validation is incompatible with Linux absolute paths on
+// .NET 8: `new Uri("/path").IsFile` treats them as relative URIs, and the
+// alternative `file:///path` format fails a subsequent `Path.IsPathRooted`
+// check. We therefore read the .lsv package natively in Rust on non-Windows.
+//
+// BG3 saves use LSPK version 18. Layout:
+//   [0..4]   magic "LSPK"
+//   [4..8]   version (u32 LE) = 18
+//   [8..16]  file-list offset (u64 LE)
+//   [16..20] file-list compressed size (u32 LE)
+//   [20..22] flags (u16)  [22..24] priority (u16)  [24..40] MD5  [40..42] num_parts
+// At file-list offset:
+//   [0..4]   num_files (u32 LE)
+//   [4..8]   compressed size of file table (u32 LE)
+//   [8..]    LZ4-block-compressed file table
+// Each file entry (272 bytes, packed):
+//   [0..256]   name (null-terminated UTF-8)
+//   [256..260] offset_lo (u32 LE)
+//   [260..262] offset_hi (u16 LE)  → file_offset = offset_lo | (offset_hi << 32)
+//   [262]      archive_part
+//   [263]      flags (low nibble = compression: 0=none, 2=LZ4, 3=LZ4HC, 4=Zstd)
+//   [264..268] size_on_disk (u32 LE)
+//   [268..272] uncompressed_size (u32 LE)
+
+#[cfg(not(windows))]
+fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut f = std::fs::File::open(lsv_path).ok()?;
+
+    // Validate magic + version
+    let mut sig = [0u8; 4];
+    f.read_exact(&mut sig).ok()?;
+    if &sig != b"LSPK" { return None; }
+    let version = read_u32_le(&mut f)?;
+    if version != 18 { return None; }
+
+    let file_list_offset = read_u64_le(&mut f)?;
+    let _file_list_size  = read_u32_le(&mut f)?;
+    // skip flags(2) + priority(2) + md5(16) + num_parts(2)
+
+    // Read file table
+    f.seek(SeekFrom::Start(file_list_offset)).ok()?;
+    let num_files       = read_u32_le(&mut f)? as usize;
+    let compressed_size = read_u32_le(&mut f)? as usize;
+
+    let mut compressed = vec![0u8; compressed_size];
+    f.read_exact(&mut compressed).ok()?;
+
+    const ENTRY: usize = 272;
+    let table = lz4_flex::decompress(&compressed, num_files * ENTRY).ok()?;
+
+    for i in 0..num_files {
+        let e = &table[i * ENTRY..(i + 1) * ENTRY];
+        let nul = e[..256].iter().position(|&b| b == 0).unwrap_or(256);
+        if std::str::from_utf8(&e[..nul]).ok()? != "SaveInfo.json" { continue; }
+
+        let offset_lo = u32::from_le_bytes(e[256..260].try_into().ok()?) as u64;
+        let offset_hi = u16::from_le_bytes(e[260..262].try_into().ok()?) as u64;
+        let flags         = e[263];
+        let size_on_disk  = u32::from_le_bytes(e[264..268].try_into().ok()?) as usize;
+        let uncomp_size   = u32::from_le_bytes(e[268..272].try_into().ok()?) as usize;
+
+        f.seek(SeekFrom::Start(offset_lo | (offset_hi << 32))).ok()?;
+        let mut data = vec![0u8; size_on_disk];
+        f.read_exact(&mut data).ok()?;
+
+        let json_bytes: Vec<u8> = match flags & 0x0F {
+            0       => data,
+            2 | 3   => lz4_flex::decompress(&data, uncomp_size).ok()?,
+            4       => zstd::bulk::decompress(&data, uncomp_size).ok()?,
+            _       => return None,
+        };
+
+        return serde_json::from_slice(&json_bytes).ok();
+    }
+    None
+}
+
+#[cfg(not(windows))]
+fn read_u32_le(f: &mut std::fs::File) -> Option<u32> {
+    use std::io::Read;
+    let mut b = [0u8; 4]; f.read_exact(&mut b).ok()?; Some(u32::from_le_bytes(b))
+}
+#[cfg(not(windows))]
+fn read_u64_le(f: &mut std::fs::File) -> Option<u64> {
+    use std::io::Read;
+    let mut b = [0u8; 8]; f.read_exact(&mut b).ok()?; Some(u64::from_le_bytes(b))
+}
+
 // ── Core extraction ───────────────────────────────────────────────────────────
 
-/// Extracts SaveInfo.json from an .lsv package using Divine, parses it, and
-/// returns a `SaveSummary`.  Returns `None` on any failure.
+/// Extracts SaveInfo.json from an .lsv package, parses it, and returns a
+/// `SaveSummary`.  On non-Windows reads the package natively (avoids Divine's
+/// broken Linux path validation).  Returns `None` on any failure.
 pub fn extract_save_info(app: &tauri::AppHandle, save_folder: &Path) -> Option<SaveSummary> {
     let lsv = save_folder.join("HonourMode.lsv");
     if !lsv.exists() {
         return None;
     }
 
-    let temp_dir = std::env::temp_dir().join(format!(
-        "bg3_inspect_{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(0)
-    ));
-    let _ = std::fs::create_dir_all(&temp_dir);
+    // ── Parse SaveInfo.json ──────────────────────────────────────────────────
+    #[cfg(not(windows))]
+    let info: SaveInfoJson = { let _ = app; read_save_info_json_native(&lsv)? };
 
-    let divine = divine_path(app);
+    #[cfg(windows)]
+    let info: SaveInfoJson = {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "bg3_inspect_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.subsec_nanos())
+                .unwrap_or(0)
+        ));
+        let _ = std::fs::create_dir_all(&temp_dir);
 
-    let result = (|| -> Option<SaveSummary> {
-        let lsv_arg = to_divine_arg(&lsv)?;
-        let tmp_arg  = to_divine_arg(&temp_dir)?;
+        let divine = divine_path(app);
+        let result = (|| -> Option<SaveInfoJson> {
+            let lsv_arg = to_divine_arg(&lsv)?;
+            let tmp_arg = to_divine_arg(&temp_dir)?;
+            let mut cmd = Command::new(&divine);
+            cmd.args(["-g", "bg3", "-a", "extract-package",
+                      "-s", &lsv_arg, "-d", &tmp_arg]);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            if !cmd.status().ok()?.success() { return None; }
+            let json_str = std::fs::read_to_string(temp_dir.join("SaveInfo.json")).ok()?;
+            serde_json::from_str(&json_str).ok()
+        })();
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        result?
+    };
 
-        let mut cmd = Command::new(&divine);
-        cmd.args([
-            "-g", "bg3",
-            "-a", "extract-package",
-            "-s", &lsv_arg,
-            "-d", &tmp_arg,
-        ]);
-        #[cfg(windows)]
-        cmd.creation_flags(CREATE_NO_WINDOW);
-        let status = cmd.status().ok()?;
-
-        if !status.success() {
-            return None;
-        }
-
-        let json_path = temp_dir.join("SaveInfo.json");
-        let json_str = std::fs::read_to_string(&json_path).ok()?;
-        let info: SaveInfoJson = serde_json::from_str(&json_str).ok()?;
-
+    // ── Build summary from parsed JSON ───────────────────────────────────────
+    {
         let chars = info.active_party?.characters.unwrap_or_default();
 
         // Prefer the custom (Generic origin) character; fall back to first entry.
@@ -270,8 +363,5 @@ pub fn extract_save_info(app: &tauri::AppHandle, save_folder: &Path) -> Option<S
             race,
             party_size: chars.len() as u32,
         })
-    })();
-
-    let _ = std::fs::remove_dir_all(&temp_dir);
-    result
+    }
 }
