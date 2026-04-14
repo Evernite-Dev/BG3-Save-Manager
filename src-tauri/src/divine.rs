@@ -213,53 +213,74 @@ fn parse_level(v: &serde_json::Value) -> u32 {
 fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
     use std::io::{Read, Seek, SeekFrom};
 
-    let mut f = std::fs::File::open(lsv_path).ok()?;
+    let mut f = std::fs::File::open(lsv_path)
+        .map_err(|e| eprintln!("[lspk] open {:?}: {e}", lsv_path)).ok()?;
 
     // Validate magic + version
     let mut sig = [0u8; 4];
     f.read_exact(&mut sig).ok()?;
-    if &sig != b"LSPK" { return None; }
+    eprintln!("[lspk] magic={:?}", std::str::from_utf8(&sig).unwrap_or("?"));
+    if &sig != b"LSPK" { eprintln!("[lspk] bad magic"); return None; }
     let version = read_u32_le(&mut f)?;
-    if version != 18 { return None; }
+    eprintln!("[lspk] version={version}");
+    if version != 18 { eprintln!("[lspk] bad version"); return None; }
 
     let file_list_offset = read_u64_le(&mut f)?;
     let file_list_size   = read_u32_le(&mut f)? as usize;
-    // skip flags(2) + priority(2) + md5(16) + num_parts(2) — we seek directly
+    eprintln!("[lspk] file_list_offset={file_list_offset} file_list_size={file_list_size}");
 
     // Read file table: [num_files (u32)][LZ4 data (file_list_size bytes)]
     f.seek(SeekFrom::Start(file_list_offset)).ok()?;
     let num_files = read_u32_le(&mut f)? as usize;
+    eprintln!("[lspk] num_files={num_files}");
 
     let mut compressed = vec![0u8; file_list_size];
-    f.read_exact(&mut compressed).ok()?;
+    f.read_exact(&mut compressed)
+        .map_err(|e| eprintln!("[lspk] read compressed: {e}")).ok()?;
 
     const ENTRY: usize = 272;
-    let table = lz4_flex::decompress(&compressed, num_files * ENTRY).ok()?;
+    eprintln!("[lspk] decompressing {} -> expected {}", file_list_size, num_files * ENTRY);
+    let table = lz4_flex::decompress(&compressed, num_files * ENTRY)
+        .map_err(|e| eprintln!("[lspk] lz4 decompress: {e}")).ok()?;
+    eprintln!("[lspk] decompressed ok, scanning {} entries", num_files);
 
     for i in 0..num_files {
         let e = &table[i * ENTRY..(i + 1) * ENTRY];
         let nul = e[..256].iter().position(|&b| b == 0).unwrap_or(256);
-        if std::str::from_utf8(&e[..nul]).ok()? != "SaveInfo.json" { continue; }
+        let name = std::str::from_utf8(&e[..nul]).unwrap_or("?");
+        if name != "SaveInfo.json" { continue; }
+        eprintln!("[lspk] found SaveInfo.json at entry {i}");
 
         let offset_lo = u32::from_le_bytes(e[256..260].try_into().ok()?) as u64;
         let offset_hi = u16::from_le_bytes(e[260..262].try_into().ok()?) as u64;
         let flags         = e[263];
         let size_on_disk  = u32::from_le_bytes(e[264..268].try_into().ok()?) as usize;
         let uncomp_size   = u32::from_le_bytes(e[268..272].try_into().ok()?) as usize;
+        let file_offset   = offset_lo | (offset_hi << 32);
+        eprintln!("[lspk] SaveInfo.json: offset={file_offset} size_on_disk={size_on_disk} uncomp={uncomp_size} flags={flags:#04x}");
 
-        f.seek(SeekFrom::Start(offset_lo | (offset_hi << 32))).ok()?;
+        f.seek(SeekFrom::Start(file_offset))
+            .map_err(|e| eprintln!("[lspk] seek: {e}")).ok()?;
         let mut data = vec![0u8; size_on_disk];
-        f.read_exact(&mut data).ok()?;
+        f.read_exact(&mut data)
+            .map_err(|e| eprintln!("[lspk] read data: {e}")).ok()?;
 
         let json_bytes: Vec<u8> = match flags & 0x0F {
-            0       => data,
-            2 | 3   => lz4_flex::decompress(&data, uncomp_size).ok()?,
-            4       => zstd::bulk::decompress(&data, uncomp_size).ok()?,
-            _       => return None,
+            0       => { eprintln!("[lspk] no compression"); data }
+            2 | 3   => lz4_flex::decompress(&data, uncomp_size)
+                            .map_err(|e| eprintln!("[lspk] lz4 json: {e}")).ok()?,
+            4       => zstd::bulk::decompress(&data, uncomp_size)
+                            .map_err(|e| eprintln!("[lspk] zstd json: {e}")).ok()?,
+            other   => { eprintln!("[lspk] unknown compression flag {other}"); return None; }
         };
 
-        return serde_json::from_slice(&json_bytes).ok();
+        eprintln!("[lspk] json {} bytes, parsing", json_bytes.len());
+        let result = serde_json::from_slice(&json_bytes)
+            .map_err(|e| eprintln!("[lspk] json parse: {e}")).ok();
+        eprintln!("[lspk] parse result: {}", if result.is_some() { "ok" } else { "NONE" });
+        return result;
     }
+    eprintln!("[lspk] SaveInfo.json not found in file table");
     None
 }
 
