@@ -15,7 +15,7 @@ curl -Lo flatpak-cargo-generator https://raw.githubusercontent.com/flatpak/flatp
 Also install flatpak-builder and the GNOME SDK:
 
 ```bash
-flatpak install flathub org.gnome.Platform//48 org.gnome.Sdk//48
+flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
 flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable
 flatpak install flathub org.freedesktop.Sdk.Extension.node20
 ```
