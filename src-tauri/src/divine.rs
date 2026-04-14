@@ -72,6 +72,7 @@ pub fn divine_path(app: &tauri::AppHandle) -> PathBuf {
     // Release builds: all of binaries/ is bundled into the resource directory.
     #[cfg(not(debug_assertions))]
     {
+        use tauri::Manager;
         #[cfg(windows)]
         {
             let resource_dir = app.path().resource_dir()
