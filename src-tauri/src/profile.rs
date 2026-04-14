@@ -4,6 +4,7 @@ use tauri::AppHandle;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+#[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 use crate::divine::divine_path;

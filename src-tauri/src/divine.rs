@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::process::Command;
 use serde::Deserialize;
-use tauri::Manager;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+#[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 // ── JSON structures from SaveInfo.json (produced by Divine) ──────────────────
