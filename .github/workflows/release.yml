@@ -7,9 +7,19 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
     permissions:
       contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: ubuntu-22.04
+            label: Linux
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +38,12 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -41,9 +57,11 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: BG3 HonourMode Save Manager ${{ github.ref_name }}
           releaseBody: |
-            See the **Assets** section below to download the installer.
+            See the **Assets** section below to download the installer for your platform.
 
-            **First time installing?** Download `BG3.Save.Manager_X.X.X_x64-setup.exe` and run it.
+            **Windows:** Download `BG3.Save.Manager_X.X.X_x64-setup.exe` and run it.
+            **Linux / Steam Deck:** Download the `.AppImage` file, make it executable, and run it.
+
             **Updating?** The app will prompt you automatically, or download the installer to update manually.
           releaseDraft: true
           prerelease: false
