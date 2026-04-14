@@ -47,6 +47,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Install AppImage repack tools (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          curl -Lo appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -64,3 +70,15 @@ jobs:
             **Updating?** The app will prompt you automatically, or download the installer to update manually.
           releaseDraft: true
           prerelease: false
+
+      - name: Repack AppImage without bundled EGL (Steam Deck compatibility)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          APP=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          "$APP" --appimage-extract
+          rm -f squashfs-root/usr/lib/libEGL* \
+                squashfs-root/usr/lib/libGL.so* \
+                squashfs-root/usr/lib/libGLdispatch* \
+                squashfs-root/usr/lib/libGLESv2* \
+                squashfs-root/usr/lib/libGLX*
+          ARCH=x86_64 ./appimagetool squashfs-root "$APP"
