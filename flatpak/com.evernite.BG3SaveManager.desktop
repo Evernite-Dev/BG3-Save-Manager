@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=BG3 HonourMode Save Manager
+Comment=Manage and restore Baldur's Gate 3 HonourMode saves
+Exec=bg3-save-manager
+Icon=com.evernite.BG3SaveManager
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+Keywords=Baldur;Gate;BG3;Save;Backup;HonourMode;
+StartupWMClass=bg3-save-manager

@@ -18,6 +18,14 @@ Download the latest release for your platform from the [Releases](../../releases
 
 - **Windows:** Run the `.exe` installer
 - **Linux / Steam Deck:** Download the `.AppImage`, make it executable (`chmod +x`), and run it
+  - Steam Deck requires `webkit2gtk-4.1` — run this once in Desktop Mode:
+    ```bash
+    sudo steamos-readonly disable
+    sudo pacman-key --init && sudo pacman-key --populate archlinux holo
+    sudo pacman -Sy --noconfirm webkit2gtk-4.1
+    sudo steamos-readonly enable
+    ```
+  - Note: this is reset on major SteamOS updates and will need to be re-run
 
 ## Building from source
 

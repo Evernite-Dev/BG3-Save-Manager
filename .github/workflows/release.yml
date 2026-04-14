@@ -47,13 +47,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Install AppImage repack tools (Linux)
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          curl -Lo appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
-
-      - name: Build and publish release
+      # ── Windows: build + publish in one step ─────────────────────────────────
+      - name: Build and publish release (Windows)
+        if: matrix.os == 'windows-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -66,19 +62,60 @@ jobs:
 
             **Windows:** Download `BG3.Save.Manager_X.X.X_x64-setup.exe` and run it.
             **Linux / Steam Deck:** Download the `.AppImage` file, make it executable, and run it.
+            > Steam Deck users: `webkit2gtk-4.1` must be installed. See the README for instructions.
 
             **Updating?** The app will prompt you automatically, or download the installer to update manually.
           releaseDraft: true
           prerelease: false
 
-      - name: Repack AppImage without bundled EGL (Steam Deck compatibility)
+      # ── Linux: build, repack, re-sign, then upload ───────────────────────────
+      - name: Build Tauri app (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: npm run tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - name: Repack AppImage (remove bundled EGL + WebKit for Steam Deck)
         if: matrix.os == 'ubuntu-22.04'
         run: |
+          curl -Lo appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+
           APP=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
           "$APP" --appimage-extract
+
+          # Remove bundled EGL and WebKit so the system versions are used
           rm -f squashfs-root/usr/lib/libEGL* \
                 squashfs-root/usr/lib/libGL.so* \
                 squashfs-root/usr/lib/libGLdispatch* \
                 squashfs-root/usr/lib/libGLESv2* \
-                squashfs-root/usr/lib/libGLX*
+                squashfs-root/usr/lib/libGLX* \
+                squashfs-root/usr/lib/libwebkit2gtk-4.1* \
+                squashfs-root/usr/lib/libjavascriptcoregtk-4.1*
+
           ARCH=x86_64 ./appimagetool squashfs-root "$APP"
+
+          # Re-sign the repacked AppImage
+          npm run tauri -- signer sign --private-key "$TAURI_SIGNING_PRIVATE_KEY" "$APP"
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - name: Upload Linux artifacts to release
+        if: matrix.os == 'ubuntu-22.04'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APP=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          DEB=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -1)
+          RPM=$(find src-tauri/target/release/bundle/rpm -name "*.rpm" | head -1)
+
+          # Wait for the Windows job to have created the draft release
+          for i in $(seq 1 10); do
+            gh release view "${{ github.ref_name }}" &>/dev/null && break
+            echo "Waiting for release to be created by Windows job... ($i/10)"
+            sleep 30
+          done
+
+          gh release upload "${{ github.ref_name }}" \
+            "$APP" "${APP}.sig" "$DEB" "$RPM" \
+            --clobber

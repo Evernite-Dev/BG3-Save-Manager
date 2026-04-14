@@ -1,0 +1,73 @@
+app-id: com.evernite.BG3SaveManager
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node20
+command: bg3-save-manager
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=network
+  # BG3 native Steam saves
+  - --filesystem=xdg-data/Larian Studios:rw
+  # BG3 Proton/Steam Deck saves
+  - --filesystem=~/.steam/steam/steamapps/compatdata/1086940:rw
+  # Open folders in file manager
+  - --talk-name=org.freedesktop.portal.OpenURI
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+  env:
+    CARGO_HOME: /run/build/bg3-save-manager/cargo
+    npm_config_cache: /run/build/bg3-save-manager/npm-cache
+    XDG_CACHE_HOME: /run/build/bg3-save-manager/cache
+
+modules:
+  - name: bg3-save-manager
+    buildsystem: simple
+    build-commands:
+      # Build frontend
+      - npm ci --offline
+      - npm run build
+
+      # Build Tauri backend (frontend must be built first — tauri embeds it)
+      - cd src-tauri && cargo build --release
+
+      # Install main binary
+      - install -Dm755 src-tauri/target/release/bg3-save-manager /app/bin/bg3-save-manager
+
+      # Install Divine and its managed .NET assemblies
+      # All files land in /app/share/com.evernite.BG3SaveManager/binaries/
+      - mkdir -p /app/share/com.evernite.BG3SaveManager/binaries
+      - install -Dm755 src-tauri/binaries/divine-x86_64-unknown-linux-gnu
+          /app/share/com.evernite.BG3SaveManager/binaries/Divine
+      - cp src-tauri/binaries/*.dll
+          src-tauri/binaries/*.json
+          src-tauri/binaries/*.config
+          /app/share/com.evernite.BG3SaveManager/binaries/ || true
+
+      # Icons
+      - install -Dm644 src-tauri/icons/32x32.png
+          /app/share/icons/hicolor/32x32/apps/com.evernite.BG3SaveManager.png
+      - install -Dm644 src-tauri/icons/128x128.png
+          /app/share/icons/hicolor/128x128/apps/com.evernite.BG3SaveManager.png
+      - install -Dm644 src-tauri/icons/128x128@2x.png
+          /app/share/icons/hicolor/256x256/apps/com.evernite.BG3SaveManager.png
+
+      # Desktop entry and AppStream metadata
+      - install -Dm644 flatpak/com.evernite.BG3SaveManager.desktop
+          /app/share/applications/com.evernite.BG3SaveManager.desktop
+      - install -Dm644 flatpak/com.evernite.BG3SaveManager.metainfo.xml
+          /app/share/metainfo/com.evernite.BG3SaveManager.metainfo.xml
+
+    sources:
+      - type: dir
+        path: ..
+      # Generated offline dependency manifests — see flatpak/README.md for how to regenerate
+      - flatpak/cargo-sources.json
+      - flatpak/npm-sources.json

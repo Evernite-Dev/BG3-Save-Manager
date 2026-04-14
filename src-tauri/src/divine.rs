@@ -72,13 +72,24 @@ pub fn divine_path(app: &tauri::AppHandle) -> PathBuf {
     // Release builds: all of binaries/ is bundled into the resource directory.
     #[cfg(not(debug_assertions))]
     {
-        use tauri::Manager;
-        let resource_dir = app.path().resource_dir()
-            .unwrap_or_else(|_| PathBuf::from("."));
         #[cfg(windows)]
-        return resource_dir.join("binaries").join("Divine.exe");
+        {
+            let resource_dir = app.path().resource_dir()
+                .unwrap_or_else(|_| PathBuf::from("."));
+            return resource_dir.join("binaries").join("Divine.exe");
+        }
+
         #[cfg(not(windows))]
-        return resource_dir.join("binaries").join("Divine");
+        {
+            // Flatpak: binaries are installed to /app/share/{app-id}/binaries/
+            if let Ok(id) = std::env::var("FLATPAK_ID") {
+                return PathBuf::from(format!("/app/share/{}/binaries/Divine", id));
+            }
+            // AppImage / regular install
+            let resource_dir = app.path().resource_dir()
+                .unwrap_or_else(|_| PathBuf::from("."));
+            return resource_dir.join("binaries").join("Divine");
+        }
     }
 }
 

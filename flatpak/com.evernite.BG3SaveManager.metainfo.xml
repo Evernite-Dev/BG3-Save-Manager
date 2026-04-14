@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.evernite.BG3SaveManager</id>
+
+  <name>BG3 HonourMode Save Manager</name>
+  <summary>Manage and restore Baldur's Gate 3 HonourMode saves</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+
+  <description>
+    <p>
+      A desktop app for managing Baldur's Gate 3 HonourMode saves. Browse all
+      HonourMode runs, create labelled backups at any point, and restore any
+      backup with an automatic safety backup beforehand.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Browse all HonourMode runs and their backups</li>
+      <li>Create labelled backups at any point</li>
+      <li>Restore any backup with an automatic pre-restore safety backup</li>
+      <li>View save screenshots and party metadata</li>
+      <li>Profile editor to clear failed Honour Mode flags without starting over</li>
+    </ul>
+  </description>
+
+  <categories>
+    <category>Game</category>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>Baldur's Gate</keyword>
+    <keyword>BG3</keyword>
+    <keyword>save manager</keyword>
+    <keyword>HonourMode</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/Evernite-Dev/BG3-Save-Manager</url>
+  <url type="bugtracker">https://github.com/Evernite-Dev/BG3-Save-Manager/issues</url>
+
+  <developer id="com.evernite">
+    <name>Evernite</name>
+  </developer>
+
+  <launchable type="desktop-id">com.evernite.BG3SaveManager.desktop</launchable>
+
+  <provides>
+    <binary>bg3-save-manager</binary>
+  </provides>
+
+  <releases>
+    <release version="1.0.0" date="2026-04-14">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>
