@@ -207,7 +207,7 @@ fn parse_level(v: &serde_json::Value) -> u32 {
 //   [256..260] offset_lo (u32 LE)
 //   [260..262] offset_hi (u16 LE)  → file_offset = offset_lo | (offset_hi << 32)
 //   [262]      archive_part
-//   [263]      flags (low nibble = compression: 0=none, 2=LZ4, 3=LZ4HC, 4=Zstd)
+//   [263]      flags (low nibble = compression: 0=none, 2=LZ4, 3=Zstd, 4=Zstd)
 //   [264..268] size_on_disk (u32 LE)
 //   [268..272] uncompressed_size (u32 LE)
 
@@ -274,18 +274,10 @@ fn read_save_info_json_native(lsv_path: &Path) -> Option<SaveInfoJson> {
 
         let json_bytes: Vec<u8> = match flags & 0x0F {
             0       => { eprintln!("[lspk] no compression"); data }
-            2 | 3   => {
-                // Individual files use LZ4 frame format (not raw block)
-                use std::io::Read;
-                let mut dec = lz4_flex::frame::FrameDecoder::new(
-                    std::io::Cursor::new(&data));
-                let mut out = Vec::with_capacity(uncomp_size);
-                dec.read_to_end(&mut out)
-                    .map_err(|e| eprintln!("[lspk] lz4 frame: {e}")).ok()?;
-                out
-            }
-            4       => zstd::bulk::decompress(&data, uncomp_size)
-                            .map_err(|e| eprintln!("[lspk] zstd json: {e}")).ok()?,
+            2       => lz4_flex::decompress(&data, uncomp_size)
+                            .map_err(|e| eprintln!("[lspk] lz4: {e}")).ok()?,
+            3 | 4   => zstd::bulk::decompress(&data, uncomp_size)
+                            .map_err(|e| eprintln!("[lspk] zstd: {e}")).ok()?,
             other   => { eprintln!("[lspk] unknown compression flag {other}"); return None; }
         };
 
