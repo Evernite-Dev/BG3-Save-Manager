@@ -27,6 +27,9 @@ Run these from the repo root whenever `package-lock.json` or `Cargo.lock` change
 ```bash
 python flatpak-node-generator npm package-lock.json -o flatpak/npm-sources.json
 python flatpak-cargo-generator src-tauri/Cargo.lock -o flatpak/cargo-sources.json
+
+# Note: paths in the manifest are relative to the manifest file (flatpak/),
+# so the sources are referenced as cargo-sources.json / npm-sources.json inside the manifest.
 ```
 
 Commit both generated files — they are required for the offline Flatpak build.

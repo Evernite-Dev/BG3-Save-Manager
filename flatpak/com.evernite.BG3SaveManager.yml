@@ -69,5 +69,5 @@ modules:
       - type: dir
         path: ..
       # Generated offline dependency manifests — see flatpak/README.md for how to regenerate
-      - flatpak/cargo-sources.json
-      - flatpak/npm-sources.json
+      - cargo-sources.json
+      - npm-sources.json
