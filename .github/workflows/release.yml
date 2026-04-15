@@ -96,7 +96,7 @@ jobs:
           ARCH=x86_64 ./appimagetool squashfs-root "$APP"
 
           # Re-sign the repacked AppImage
-          npm run tauri -- signer sign --private-key "$TAURI_SIGNING_PRIVATE_KEY" "$APP"
+          npm run tauri -- signer sign --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "" "$APP"
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
