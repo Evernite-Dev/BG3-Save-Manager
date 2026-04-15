@@ -205,11 +205,11 @@ export default function App() {
   };
 
   const handleOpenSaveDir = async () => {
-    if (saveDirPath) await openPath(saveDirPath).catch((e) => err(`Could not open save folder: ${e}`));
+    if (saveDirPath) await invoke('open_folder', { path: saveDirPath }).catch((e) => err(`Could not open save folder: ${e}`));
   };
 
   const handleOpenBackupDir = async () => {
-    if (backupDirPath) await openPath(backupDirPath).catch((e) => err(`Could not open backup folder: ${e}`));
+    if (backupDirPath) await invoke('open_folder', { path: backupDirPath }).catch((e) => err(`Could not open backup folder: ${e}`));
   };
 
   // ── Profile editor handlers ───────────────────────────────────────────────

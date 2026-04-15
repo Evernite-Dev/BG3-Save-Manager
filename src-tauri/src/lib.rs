@@ -24,6 +24,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             saves::get_save_dir_path,
             saves::get_backup_dir_path,
+            saves::open_folder,
             saves::get_honour_saves,
             saves::get_backups_for_run,
             saves::backup_save,
