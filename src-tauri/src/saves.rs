@@ -125,6 +125,11 @@ pub async fn get_backup_dir_path(app: AppHandle) -> String {
 
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err(format!("Folder does not exist: {path}"));
+    }
+
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
@@ -134,8 +139,9 @@ pub async fn open_folder(path: String) -> Result<(), String> {
     }
     #[cfg(target_os = "linux")]
     {
+        let uri = format!("file://{path}");
         std::process::Command::new("xdg-open")
-            .arg(&path)
+            .arg(&uri)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
