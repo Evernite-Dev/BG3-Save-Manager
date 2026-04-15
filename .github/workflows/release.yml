@@ -61,8 +61,11 @@ jobs:
             See the **Assets** section below to download the installer for your platform.
 
             **Windows:** Download `BG3.Save.Manager_X.X.X_x64-setup.exe` and run it.
-            **Linux / Steam Deck:** Download the `.AppImage` file, make it executable, and run it.
-            > Steam Deck users: `webkit2gtk-4.1` must be installed. See the README for instructions.
+            **Linux:** Download the `.AppImage` file, mark it executable (`chmod +x`), and run it.
+            **Steam Deck:** Download `BG3SaveManager.flatpak` and install it with:
+            ```
+            flatpak install BG3SaveManager.flatpak
+            ```
 
             **Updating?** The app will prompt you automatically, or download the installer to update manually.
           releaseDraft: true
@@ -102,3 +105,64 @@ jobs:
           gh release upload "${{ github.ref_name }}" \
             "$APP" "${APP}.sig" "$DEB" "$RPM" \
             --clobber
+
+  # ── Flatpak bundle (Steam Deck) ───────────────────────────────────────────────
+  flatpak:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flatpak tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Cache Flatpak runtimes
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: flatpak-runtimes-gnome49
+
+      - name: Install Flatpak runtimes
+        run: |
+          flatpak install --user -y flathub \
+            org.gnome.Platform//49 \
+            org.gnome.Sdk//49 \
+            org.freedesktop.Sdk.Extension.rust-stable//24.08 \
+            org.freedesktop.Sdk.Extension.node20//24.08
+
+      - name: Cache flatpak-builder
+        uses: actions/cache@v4
+        with:
+          path: .flatpak-builder/cache
+          key: flatpak-builder-${{ hashFiles('flatpak/com.evernite.BG3SaveManager.yml') }}
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --user --force-clean \
+            --repo=flatpak-repo \
+            build-dir \
+            flatpak/com.evernite.BG3SaveManager.yml
+
+      - name: Create bundle
+        run: |
+          flatpak build-bundle flatpak-repo \
+            BG3SaveManager.flatpak \
+            com.evernite.BG3SaveManager \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Upload Flatpak bundle to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Wait for the Windows job to have created the draft release
+          for i in $(seq 1 10); do
+            gh release view "${{ github.ref_name }}" &>/dev/null && break
+            echo "Waiting for release to be created by Windows job... ($i/10)"
+            sleep 30
+          done
+          gh release upload "${{ github.ref_name }}" BG3SaveManager.flatpak --clobber
