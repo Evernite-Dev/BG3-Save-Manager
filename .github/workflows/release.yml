@@ -75,27 +75,10 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
-      - name: Repack AppImage (remove bundled EGL + WebKit for Steam Deck)
+      - name: Sign AppImage
         if: matrix.os == 'ubuntu-22.04'
         run: |
-          curl -Lo appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
-
           APP=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
-          "$APP" --appimage-extract
-
-          # Remove bundled EGL and WebKit so the system versions are used
-          rm -f squashfs-root/usr/lib/libEGL* \
-                squashfs-root/usr/lib/libGL.so* \
-                squashfs-root/usr/lib/libGLdispatch* \
-                squashfs-root/usr/lib/libGLESv2* \
-                squashfs-root/usr/lib/libGLX* \
-                squashfs-root/usr/lib/libwebkit2gtk-4.1* \
-                squashfs-root/usr/lib/libjavascriptcoregtk-4.1*
-
-          ARCH=x86_64 ./appimagetool squashfs-root "$APP"
-
-          # Re-sign the repacked AppImage
           npm run tauri -- signer sign --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "" "$APP"
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
