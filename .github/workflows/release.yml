@@ -115,45 +115,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Flatpak tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-      - name: Cache Flatpak runtimes
-        uses: actions/cache@v4
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          path: ~/.local/share/flatpak
-          key: flatpak-runtimes-gnome49
-
-      - name: Install Flatpak runtimes
-        run: |
-          flatpak install --user -y flathub \
-            org.gnome.Platform//49 \
-            org.gnome.Sdk//49 \
-            org.freedesktop.Sdk.Extension.rust-stable//24.08 \
-            org.freedesktop.Sdk.Extension.node20//24.08
-
-      - name: Cache flatpak-builder
-        uses: actions/cache@v4
-        with:
-          path: .flatpak-builder/cache
-          key: flatpak-builder-${{ hashFiles('flatpak/com.evernite.BG3SaveManager.yml') }}
-
-      - name: Build Flatpak
-        run: |
-          flatpak-builder --user --force-clean \
-            --repo=flatpak-repo \
-            build-dir \
-            flatpak/com.evernite.BG3SaveManager.yml
-
-      - name: Create bundle
-        run: |
-          flatpak build-bundle flatpak-repo \
-            BG3SaveManager.flatpak \
-            com.evernite.BG3SaveManager \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+          bundle: BG3SaveManager.flatpak
+          manifest-path: flatpak/com.evernite.BG3SaveManager.yml
+          cache-key: flatpak-builder-${{ hashFiles('flatpak/com.evernite.BG3SaveManager.yml') }}
+          upload-artifact: false
 
       - name: Upload Flatpak bundle to release
         env:
