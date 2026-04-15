@@ -205,7 +205,8 @@ export default function App() {
   };
 
   const handleOpenSaveDir = async () => {
-    if (saveDirPath) await invoke('open_folder', { path: saveDirPath }).catch((e) => err(`Could not open save folder: ${e}`));
+    if (!saveDirPath) { err('Save folder path is not set'); return; }
+    await invoke('open_folder', { path: saveDirPath }).catch((e) => err(`Could not open save folder: ${e}`));
   };
 
   const handleOpenBackupDir = async () => {
