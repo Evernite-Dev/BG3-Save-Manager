@@ -109,17 +109,14 @@ jobs:
   # ── Flatpak bundle (Steam Deck) ───────────────────────────────────────────────
   flatpak:
     runs-on: ubuntu-22.04
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-49
+      options: --privileged
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install flatpak-builder
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
