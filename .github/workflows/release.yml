@@ -108,6 +108,7 @@ jobs:
 
   # ── Flatpak bundle (Steam Deck) ───────────────────────────────────────────────
   flatpak:
+    needs: release
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
@@ -130,10 +131,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Wait for the Windows job to have created the draft release
-          for i in $(seq 1 10); do
-            gh release view "${{ github.ref_name }}" &>/dev/null && break
-            echo "Waiting for release to be created by Windows job... ($i/10)"
-            sleep 30
-          done
+          git config --global --add safe.directory /__w/BG3-Save-Manager/BG3-Save-Manager
           gh release upload "${{ github.ref_name }}" BG3SaveManager.flatpak --clobber
