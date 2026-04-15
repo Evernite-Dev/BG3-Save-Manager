@@ -1,6 +1,6 @@
 [package]
 name = "bg3-save-manager"
-version = "0.1.0"
+version = "0.2.0"
 description = "BG3 HonourMode Save Manager"
 authors = ["Evernite"]
 edition = "2021"
