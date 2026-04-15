@@ -139,16 +139,10 @@ pub async fn open_folder(path: String) -> Result<(), String> {
     }
     #[cfg(target_os = "linux")]
     {
-        let uri = format!("file://{path}");
-        eprintln!("[open_folder] xdg-open uri={uri:?}");
-        let out = std::process::Command::new("xdg-open")
-            .arg(&uri)
-            .output()
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
             .map_err(|e| e.to_string())?;
-        eprintln!("[open_folder] exit={} stderr={}", out.status, String::from_utf8_lossy(&out.stderr));
-        if !out.status.success() {
-            return Err(format!("xdg-open failed ({}): {}", out.status, String::from_utf8_lossy(&out.stderr)));
-        }
     }
     #[cfg(target_os = "macos")]
     {
