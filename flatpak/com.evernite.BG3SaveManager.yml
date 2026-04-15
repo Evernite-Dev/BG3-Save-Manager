@@ -17,8 +17,8 @@ finish-args:
   - --filesystem=xdg-data/Larian Studios:rw
   # BG3 Proton/Steam Deck saves
   - --filesystem=~/.steam/steam/steamapps/compatdata/1086940:rw
-  # Open folders in file manager
-  - --talk-name=org.freedesktop.portal.OpenURI
+  # Open folders in file manager via XDG portal
+  - --talk-name=org.freedesktop.portal.Desktop
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
