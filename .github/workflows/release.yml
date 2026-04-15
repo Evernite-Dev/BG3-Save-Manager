@@ -110,7 +110,7 @@ jobs:
   flatpak:
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/flathub-infra/flatpak-builder:latest
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
     permissions:
       contents: write
