@@ -97,7 +97,7 @@ export default function App() {
     setImage(null);
     try {
       const backupDir = await invoke<string>('get_backup_dir_path');
-      const backupPath = `${backupDir}\\${backup.folder_name}`;
+      const backupPath = `${backupDir}/${backup.folder_name}`;
       const result = await invoke<string | null>('get_backup_image', { backupPath });
       setImage(result);
     } catch {
