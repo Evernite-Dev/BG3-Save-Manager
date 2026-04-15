@@ -27,8 +27,10 @@ pub fn save_dir() -> Option<PathBuf> {
 
     #[cfg(target_os = "linux")]
     {
-        // 1. Native Steam Linux path
-        let native = dirs::data_local_dir().map(bg3_save_tail);
+        // Use $HOME/.local/share directly so the path is valid on the host
+        // filesystem (important when running inside a Flatpak sandbox where
+        // dirs::data_local_dir() returns the redirected ~/.var/app/… path).
+        let native = dirs::home_dir().map(|h| bg3_save_tail(h.join(".local/share")));
         if let Some(ref p) = native {
             if p.exists() {
                 return native;
@@ -82,7 +84,7 @@ pub fn profile_dir() -> Option<PathBuf> {
 
     #[cfg(target_os = "linux")]
     {
-        let native = dirs::data_local_dir().map(bg3_profile_tail);
+        let native = dirs::home_dir().map(|h| bg3_profile_tail(h.join(".local/share")));
         if let Some(ref p) = native { if p.exists() { return native; } }
         let proton = dirs::home_dir().map(|h| {
             bg3_profile_tail(
