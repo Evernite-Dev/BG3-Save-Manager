@@ -3,6 +3,10 @@
 A desktop app for managing Baldur's Gate 3 HonourMode saves — back up, restore, and label runs, with a built-in profile editor to clear failed Honour Mode flags without losing your progress.
 
 **Platforms:** Windows · Linux · Steam Deck
+---
+<img width="1016" height="669" alt="image" src="https://github.com/user-attachments/assets/2297d18d-6005-4866-9639-a8508bb6afbe" />  
+
+---
 
 ## Features
 
